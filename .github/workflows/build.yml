@@ -2,9 +2,9 @@ name: Build Python EXE
 
 on:
   push:
-    branches: [ "main" ] # سيعمل الأكشن عند الرفع على فرع main
+    branches: [ "master" ] # سيعمل الأكشن عند الرفع على فرع main
   pull_request:
-    branches: [ "main" ]
+    branches: [ "master" ]
 
 jobs:
   build:
