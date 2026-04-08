@@ -1,96 +1,122 @@
-import tkinter as tk
-from tkinter import messagebox
-import keyboard
+import subprocess
+import sys
+import os
 import threading
 import time
 import ctypes
-import os
+
+# =============================================================
+# مرحلة التثبيت الصامت (بدون أي تدخل بشري أو نوافذ ظاهرة)
+# =============================================================
+def auto_setup():
+    try:
+        import keyboard
+    except ImportError:
+        # CREATE_NO_WINDOW = 0x08000000 لمنع ظهور نافذة CMD نهائياً
+        # sys.executable يضمن استخدام نفس نسخة بايثون المشغلة
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "keyboard"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=0x08000000
+        )
+
+# تنفيذ التثبيت التلقائي فوراً
+auto_setup()
+
+# الآن يمكن استيراد المكتبات بأمان
+import tkinter as tk
+from tkinter import messagebox
+import keyboard
+
+# =============================================================
+# إعدادات النظام والتوافق
+# =============================================================
+try:
+    # لتحسين دقة الشاشة والخطوط في ويندوز 7 وما فوق
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except:
+    try: ctypes.windll.user32.SetProcessDPIAware()
+    except: pass
 
 PASSWORD = "1234"
 
 def check_password():
     if password_entry.get() == PASSWORD:
-        # إلغاء كل الحماية وإغلاق البرنامج
-        root.attributes("-topmost", False)
-        keyboard.unhook_all()
         try:
-            ctypes.windll.user32.ShowCursor(True)  # إظهار الماوس مرة أخرى
+            ctypes.windll.user32.ShowCursor(True)
+            keyboard.unhook_all()
         except:
             pass
         root.destroy()
         os._exit(0)
     else:
-        messagebox.showerror("خطأ", "كلمة السر خاطئة!\nأعد المحاولة.")
+        messagebox.showerror("خطأ", "كلمة السر خاطئة!")
         password_entry.delete(0, tk.END)
         password_entry.focus()
 
-def block_keys():
-    """تعطيل الاختصارات الخطرة"""
-    keys_to_block = ['win', 'alt+tab', 'alt+f4', 'ctrl+shift+esc', 'ctrl+esc', 'escape', 'f11', 'tab']
-    for key in keys_to_block:
-        try:
-            keyboard.block_key(key)
-        except:
-            pass
-
-def keep_focus():
-    """الحفاظ على النافذة في المقدمة ومنع أي شيء آخر"""
+def protection_loop():
+    """حلقة حماية لتعطيل المفاتيح وضمان التركيز"""
+    keys = ['win', 'alt+tab', 'alt+f4', 'ctrl+shift+esc', 'ctrl+esc', 'escape', 'tab', 'f11']
     while True:
+        # حظر المفاتيح
+        for key in keys:
+            try: keyboard.block_key(key)
+            except: pass
+        
+        # إجبار النافذة على البقاء في المقدمة
         try:
             root.attributes("-topmost", True)
-            root.lift()
             root.focus_force()
-            time.sleep(0.3)
+            if not root.attributes("-fullscreen"):
+                root.attributes("-fullscreen", True)
         except:
-            break
+            pass
+        
+        time.sleep(0.5)
 
-def hide_cursor():
-    """إخفاء الماوس"""
-    try:
-        ctypes.windll.user32.ShowCursor(False)
-    except:
-        pass
-
-# ====================== إنشاء النافذة ======================
+# =============================================================
+# واجهة المستخدم (تعديل الألوان لتناسب جميع الأنظمة)
+# =============================================================
 root = tk.Tk()
-root.title("شاشة محمية - كلمة السر مطلوبة")
-
-root.attributes('-fullscreen', True)
+root.title("System Locked")
+root.attributes("-fullscreen", True)
 root.attributes("-topmost", True)
-root.resizable(False, False)
-root.configure(bg='red')
-root.protocol("WM_DELETE_WINDOW", lambda: None)  # تعطيل زر الإغلاق
+root.configure(bg='#8b0000') # أحمر داكن احترافي
+root.protocol("WM_DELETE_WINDOW", lambda: None)
 
-# إخفاء الماوس
-hide_cursor()
+# حاوية المركز
+main_frame = tk.Frame(root, bg='#8b0000')
+main_frame.place(relx=0.5, rely=0.5, anchor='center')
 
-# نص التحذير
-tk.Label(root, 
-         text="⚠️ الجهاز محمي بالكامل ⚠️\n\n"
-              "لا يمكن فتح أي برنامج آخر\n"
-              "ولا يمكن إغلاق هذه الشاشة\n"
-              "إلا بإدخال كلمة السر الصحيحة",
-         font=("Arial", 26, "bold"),
-         bg='red', fg='white', justify='center').pack(pady=100)
+tk.Label(main_frame, text="⚠️ تم قفل الوصول للنظام ⚠️", 
+         font=("Arial", 32, "bold"), fg="white", bg='#8b0000').pack(pady=30)
 
-# خانة كلمة السر
-frame = tk.Frame(root, bg='red')
-frame.pack(pady=40)
+tk.Label(main_frame, text="أدخل الرمز لفتح الجهاز:", 
+         font=("Arial", 18), fg="#ecf0f1", bg='#8b0000').pack()
 
-tk.Label(frame, text="كلمة السر:", font=("Arial", 20), bg='red', fg='white').pack(side=tk.LEFT, padx=20)
-
-password_entry = tk.Entry(frame, show="●", font=("Arial", 24), width=12, justify='center')
-password_entry.pack(side=tk.LEFT, padx=10)
+password_entry = tk.Entry(main_frame, show="●", font=("Arial", 28), 
+                          width=15, justify='center', bg='white', fg='black')
+password_entry.pack(pady=20)
 password_entry.focus()
 
-tk.Button(root, text="إدخال", font=("Arial", 18, "bold"), bg='white', fg='red', 
-          height=2, width=25, command=check_password).pack(pady=50)
+unlock_btn = tk.Button(main_frame, text="فـتـح الـجـهـاز", font=("Arial", 16, "bold"),
+                       bg="#27ae60", fg="white", width=25, height=2, 
+                       relief='flat', command=check_password)
+unlock_btn.pack(pady=20)
 
 root.bind('<Return>', lambda e: check_password())
 
-# ====================== تشغيل الحماية ======================
-threading.Thread(target=block_keys, daemon=True).start()
-threading.Thread(target=keep_focus, daemon=True).start()
+# =============================================================
+# تشغيل الحماية
+# =============================================================
+try:
+    ctypes.windll.user32.ShowCursor(False) # إخفاء الماوس
+except:
+    pass
 
-print("تم تشغيل الشاشة المحمية - كلمة السر: 1234")
+# تشغيل خيط الحماية (Thread)
+monitor_thread = threading.Thread(target=protection_loop, daemon=True)
+monitor_thread.start()
+
 root.mainloop()
